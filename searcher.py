@@ -15,7 +15,7 @@ import inspect
 #Calculate RMSD of points with predicted values from model
 def goodness(f,x,y,p):
     sum_of_squares = np.sum(np.square(y - f(x,*p)))
-    ret = np.sqrt(sum_of_squares/len(x))
+    ret = np.sqrt(sum_of_squares/len(x)) / np.abs(np.max(y) - np.min(y))
     return ret
 
 ### MAIN FUNCTIONS ###
@@ -23,21 +23,21 @@ def searcher(func, x, y, p_min, p_max, max_itr=None, n_interp=4):
     n_params = len(inspect.getargspec(func)[0]) - 1 
     if max_itr is None:
         if n_params <= 3:
-            max_itr = 10**(5)
+            max_itr = 10**(4)
         else:
-            max_itr = 10**(6)
+            max_itr = 10**(5)
     ###Searching for initial points to serve as nodes of graph
 
     scores = np.zeros(max_itr)
     tested_parameters = np.array([np.empty(n_params) for i in range(0,max_itr)]) 
 
     for i in range(0,max_itr):
-        tested_parameters[i] = np.array([np.random.uniform(p_min[j], p_max[j]) 
+        tested_parameters[i] = np.array([(np.random.uniform(p_min[j], p_max[j])) 
                                         for j in range(0,n_params)])
         scores[i] = goodness(func,x,y,tested_parameters[i])
 
     thresh_score = np.min(scores)
-    high_thresh_mult = 2 
+    high_thresh_mult = 1.5 
     low_thresh_mult = 0
 
     nodes = []  #good parameter sets, to serve as nodes on our graph
@@ -70,13 +70,14 @@ def searcher(func, x, y, p_min, p_max, max_itr=None, n_interp=4):
     degrees = np.zeros(len(nodes))
     if len(edges) > 1:
         for edge in edges:
-            degrees[edges[0]] += 1
-            degrees[edges[1]] += 1
+            degrees[edge[0]] += 1
+            degrees[edge[1]] += 1
     else: #failed to find anything useful
-        bestGuess = nodes[-1]
-        bestDegree = -1 
-        p_fit = [bestGuess,[]] 
-        return p_fit, bestGuess, bestDegree
+        #bestGuess = tested_parameters[0] 
+        #bestDegree = -1 
+        #p_fit = [bestGuess,[]] 
+        p_fit, bestGuess, bestDegree = searcher(func, x, y, p_min, 
+                                                p_max, max_itr=10**6)
 
     bestGuess = np.empty(n_params)
     bestDegree = 0
@@ -92,7 +93,8 @@ def searcher(func, x, y, p_min, p_max, max_itr=None, n_interp=4):
     try:
         p_fit = curve_fit(func,x,y,p0=bestGuess)
     except RuntimeError:
-        p_fit = [bestGuess * -1, []]
+        p_fit, bestGuess, bestDegree = searcher(func, x, y, p_min, 
+                                                p_max, max_itr=10**6)
     return p_fit, bestGuess, bestDegree
 
 

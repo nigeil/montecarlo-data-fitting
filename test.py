@@ -6,7 +6,7 @@ import pylab as pl
 import inspect
 import time 
 
-from searcher import searcher 
+from searcher import searcher, goodness 
 
 #1 parameter functions
 def line_1(x, a):
@@ -49,9 +49,9 @@ def sin_6(x, a,b,c,d,e,f):
 def exp_6(x, a,b,c,d,e,f):
     return a * np.exp(b*(x+c)) + d * np.exp(e*(x+f))
 
-#10 parameter functions
-def exp_sin_10(x, a,b,c,d,e,f,g,h,i,j):
-    return a * np.exp(b*(x+c)) * (d * np.sin(e*x + f) + g * np.cos(h*x + i) + j)
+#8 parameter functions
+def exp_sin_8(x, a,b,c,d,e,f,g,h):
+    return a * np.exp(b*(x+c)) * (np.sin(d*x + e) + np.cos(f*x + g)) + h
 
 
 #Get the tests together
@@ -59,7 +59,7 @@ test_functions = [line_1, sin_1, exp_1,
                   line_2, sin_2, exp_2,
                   poly_4, sin_4, exp_4,
                   poly_6, sin_6, exp_6,
-                  exp_sin_10]
+                  exp_sin_8]
 
 test_names = ["a * x", "a * sin(x)", "a * exp(x)",
               "a * x + b", "a * sin(b*x)", "a * exp(b*x)",
@@ -67,26 +67,26 @@ test_names = ["a * x", "a * sin(x)", "a * exp(x)",
               "a * exp(b*(x+c)) + d", 
               "a * x**5 + b * x**4 + c* x**3 + d * x**2 + e * x + f",
               "a * sin(b*x + c) + d * cos(e*d + f)", 
-              "a * exp(b*(x+c)) + d * exp(e*(x+f))"
-              "a * exp(b*(x+c)) * (d * sin(e*x + f) + g * cos(h*x + i) + j)"]
+              "a * exp(b*(x+c)) + d * exp(e*(x+f))",
+              "a * np.exp(b*(x+c)) * (np.sin(d*x + e) + np.cos(f*x + g)) + h"]
 
 #Generate parameters, as well as noisy data to fit, for each function
 n_test_parameters = [len((inspect.getargspec(test_functions[i]))[0]) - 1 
                      for i in range(0, len(test_functions))]
-n_tests_per_function = 1 #Get list of (n_tests_per_function) sets of parameters for each function
-noise_level = 0.1 #Data will be in range [f(x)*(1-noise_level), f(x)*(1+noise_level)]
+n_tests_per_function = 4 #Get list of (n_tests_per_function) sets of parameters for each function
+noise_level = 0.05 #Data will be in range [f(x)*(1-noise_level), f(x)*(1+noise_level)]
 
-test_x = np.linspace(-1,1,100) #Use standard interval for everything
+test_x = np.linspace(-1,1,100)
 test_y = []
 test_parameters = []
-p_min = np.array([-100 for i in range(0,max(n_test_parameters))])
-p_max = np.array([100 for i in range(0,max(n_test_parameters))])
+p_min = np.array([-2 for i in range(0,max(n_test_parameters))])
+p_max = np.array([2 for i in range(0,max(n_test_parameters))])
 
 for i in range(0,len(test_functions)):
     test_parameters.append([])
     test_y.append([])
     for j in range(0,n_tests_per_function):
-        test_parameters[i].append(np.random.uniform(-10, 10, n_test_parameters[i]))
+        test_parameters[i].append(np.random.uniform(-1, 1, n_test_parameters[i]))
         test_y[i].append(test_functions[i](test_x, *(test_parameters[i][j])))
         test_y[i][j] *= (1 + np.random.uniform(-1 * noise_level, noise_level, len(test_x)))
 
@@ -112,9 +112,15 @@ for i in range(0, len(test_functions)):
         print("True parameters: " + str(test_parameters[i][j]))
         print("Best fit parameters: " + str(fits[i][j][0]))
         print("Guessed parameters: " + str(guesses[i][j]) + " | Degree: " + str(degrees[i][j]))
-        pl.plot(test_x,test_y[i][j],'bo',alpha=0.2,label="Original data " + str(j))
-        pl.plot(test_x,test_functions[i](test_x, *(fits[i][j][0])), 'g-', label="Best fit " + str(j))
-        pl.plot(test_x,test_functions[i](test_x, *(guesses[i][j])),'m-', label=("Guess " + str(j)))
-    #pl.legend(loc=1)
-    pl.savefig("testPlots/" + test_names[i] + ".png")
-    pl.clf()
+        pl.plot(test_x,test_y[i][j],'bo',alpha=0.2,label="Original data ")
+        pl.plot(test_x,test_functions[i](test_x, *(fits[i][j][0])), 'g-', label="Best fit" )
+        pl.plot(test_x,test_functions[i](test_x, *(guesses[i][j])),'m-', 
+                label="Best guess," + " degree = " + str(degrees[i][j]))
+        pl.legend(loc=2)
+        pl.suptitle("f(x) = " + str(test_names[i]))
+        pl.title("Goodness of guess = " 
+                + str(goodness(test_functions[i],test_x,test_y,guesses[i][j])))
+        #pl.title("True parameters = " + str(test_parameters[i][j]) + "\nGuessed parameters = " 
+        #          + str(guesses[i][j]))
+        pl.savefig("testPlots/" + test_names[i] + "_test" + str(j) + ".png")
+        pl.clf()
